@@ -1,22 +1,33 @@
+// dependencies
 const express = require("express");
 const mongoose = require("mongoose");
+const redis = require("redis");
+const session = require("express-session");
+const cors = require("cors");
+
+// local variables
 const {
   MONGO_USER,
   MONGO_PASSWORD,
   MONGO_IP,
   MONGO_PORT,
+  REDIS_URL,
+  REDIS_PORT,
+  SESSION_SECRET,
 } = require("./config/config");
 
 const app = express();
 
-const postRouter = require("./routes/postRoutes");
+const RedisStore = require("connect-redis")(session);
+const redisClient = redis.createClient({ host: REDIS_URL, port: REDIS_PORT });
 
+const postRouter = require("./routes/postRoutes");
 const userRouter = require("./routes/userRoutes");
 
 const port = process.env.PORT || 3000;
-
 const mongoURL = `mongodb://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_IP}:${MONGO_PORT}/?authSource=admin`;
 
+// util functions
 const connectWithRetry = () => {
   mongoose
     .connect(mongoURL)
@@ -29,9 +40,26 @@ const connectWithRetry = () => {
 
 connectWithRetry();
 
+// middlewares
+app.enable("trust proxy");
+app.use(
+  session({
+    store: new RedisStore({ client: redisClient }),
+    secret: SESSION_SECRET,
+    cookie: {
+      secure: false,
+      resave: false,
+      saveUninitialized: true,
+      httpOnly: true,
+      maxAge: 30000,
+    },
+  })
+);
 app.use(express.json());
 
+// routes
 app.get("/", (req, res) => {
+  console.log("Node ran!");
   res.send({
     name: "Shyam Sahoo",
     age: 24,
